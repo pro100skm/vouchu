@@ -10,17 +10,21 @@ contract AccessManager is AccessControl {
 	/* ────────────────────────────────────────────────
 		 Roles
 	──────────────────────────────────────────────── */
-	bytes32 public constant HOST_ROLE   = keccak256("HOST_ROLE");
-	bytes32 public constant HOST_CONTRACT_ROLE   = keccak256("HOST_CONTRACT_ROLE");
-	bytes32 public constant ADMIN_ROLE  = keccak256("ADMIN_ROLE");
-	bytes32 public constant INVITE_ROLE  = keccak256("INVITE_ROLE");
+	bytes32 public constant HOST_CONTRACT     = keccak256("HOST_CONTRACT");
+	bytes32 public constant REGISTRY_CONTRACT = keccak256("REGISTRY_CONTRACT");
+
 
 	/* ────────────────────────────────────────────────
 		 Constructor
 	──────────────────────────────────────────────── */
 	constructor(address admin) {
+		if (admin == address(0)) {
+			revert("Admin address cannot be zero");
+		}
+
 		_grantRole(DEFAULT_ADMIN_ROLE, admin);
-		_grantRole(ADMIN_ROLE, admin);
+		_setRoleAdmin(REGISTRY_CONTRACT, DEFAULT_ADMIN_ROLE);
+		_setRoleAdmin(HOST_CONTRACT, DEFAULT_ADMIN_ROLE);
 	}
 
 }

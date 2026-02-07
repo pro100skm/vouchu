@@ -2,7 +2,14 @@
   "name": "@packages/contracts",
   "version": "1.0.0",
   "scripts": {
-    "compile": "npx hardhat compile"
+    "test": "hardhat test",
+    "test:full_flow": "hardhat test test/FullFlow.test.ts",
+    "test:unit": "hardhat test test/unit/*.test.ts",
+    "test:integration": "hardhat test test/integration/*.test.ts",
+    "test:coverage": "hardhat coverage",
+    "test:gas": "REPORT_GAS=true hardhat test",
+    "clean": "hardhat clean",
+    "compile": "hardhat compile"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^5.4.0"
@@ -16,8 +23,8 @@
     "@nomicfoundation/hardhat-toolbox": "6.1.0",
     "@nomicfoundation/hardhat-verify": "^2.1.0",
     "@nomicfoundation/ignition-core": "^0.15.15",
-    "@typechain/ethers-v6": "^0.5.0",
-    "@typechain/hardhat": "^9.0.0",
+    "@typechain/ethers-v6": "^0.5.1",
+    "@typechain/hardhat": "^9.1.0",
     "@types/chai": "^4.2.0",
     "@types/mocha": ">=9.1.0",
     "@types/node": ">=20.0.0",
