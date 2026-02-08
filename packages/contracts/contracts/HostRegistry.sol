@@ -13,7 +13,7 @@ contract HostRegistry is AccessControlled, ReentrancyGuard {
 	/* ────────────────────────────────────────────────
 		 Storage
 	──────────────────────────────────────────────── */
-	uint256 minToDeposit = 100_000_000; // 100$
+	uint256 public minToDeposit = 100_000_000; // 100$
 
 	HostDeposit public hostDeposit;
 
@@ -115,7 +115,7 @@ contract HostRegistry is AccessControlled, ReentrancyGuard {
 	}
 
 	function updateMinToDeposit(uint256 _new) external onlyAdmin {
-		require(_new > 1_000_000, "Limit is 1$");
+		require(_new > 1 ether, "Limit is 1$");
 		minToDeposit = _new;
 		emit UpdatedMinToDeposit(_new);
 	}

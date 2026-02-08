@@ -15,14 +15,13 @@ describe("HostDeposit", () => {
   let host: SignerWithAddress;
   let user1: SignerWithAddress;
   let user2: SignerWithAddress;
-  let deployer: SignerWithAddress;
 
   const HOST_ROLE = ethers.keccak256(ethers.toUtf8Bytes("HOST_ROLE"));
   const INVITE_ROLE = ethers.keccak256(ethers.toUtf8Bytes("INVITE_ROLE"));
-  const ADMIN_ROLE = ethers.ZeroHash; // DEFAULT_ADMIN_ROLE = bytes32(0)
+  const ADMIN_ROLE = ethers.ZeroHash;
 
   beforeEach(async () => {
-    [deployer, admin, host, user1, user2] = await ethers.getSigners();
+    [admin, host, user1, user2] = await ethers.getSigners();
 
     // Разворачиваем AccessManager
     const AccessManagerFactory = await ethers.getContractFactory(
@@ -108,7 +107,9 @@ describe("HostDeposit", () => {
 
     describe("lockDeposit", () => {
       it("Should lock deposit", async () => {
-        await hostDeposit.lockDeposit(host.address, ethers.parseEther("30"));
+        await hostDeposit
+          .connect(admin)
+          .lockDeposit(host.address, ethers.parseEther("30"));
         const deposit = await hostDeposit.deposits(host.address);
         expect(deposit.locked).to.equal(ethers.parseEther("30"));
         expect(deposit.total).to.equal(ethers.parseEther("100"));
@@ -137,7 +138,9 @@ describe("HostDeposit", () => {
 
     describe("unlockDeposit", () => {
       beforeEach(async () => {
-        await hostDeposit.lockDeposit(host.address, ethers.parseEther("30"));
+        await hostDeposit
+          .connect(admin)
+          .lockDeposit(host.address, ethers.parseEther("30"));
       });
 
       it("Should unlock deposit", async () => {
@@ -158,52 +161,6 @@ describe("HostDeposit", () => {
         await expect(
           hostDeposit.unlockDeposit(host.address, ethers.parseEther("50"))
         ).to.be.revertedWith("Locked deposit must be >= sending amount");
-      });
-    });
-
-    describe("useForInvite and releaseFromInvite", () => {
-      it("Should use deposit for invite", async () => {
-        await hostDeposit
-          .connect(user1)
-          .useForInvite(host.address, user2.address, ethers.parseEther("10"));
-
-        const deposit = await hostDeposit.deposits(host.address);
-        expect(deposit.usedForInvites).to.equal(ethers.parseEther("10"));
-        expect(await hostDeposit.inviteDeposits(user2.address)).to.equal(
-          ethers.parseEther("10")
-        );
-      });
-
-      it("Should release invite deposit", async () => {
-        await hostDeposit
-          .connect(user1)
-          .useForInvite(host.address, user2.address, ethers.parseEther("10"));
-
-        await hostDeposit
-          .connect(user1)
-          .releaseFromInvite(host.address, user2.address);
-
-        const deposit = await hostDeposit.deposits(host.address);
-        expect(deposit.usedForInvites).to.equal(0);
-        expect(await hostDeposit.inviteDeposits(user2.address)).to.equal(0);
-      });
-
-      it("Should emit events for invite operations", async () => {
-        await expect(
-          hostDeposit
-            .connect(user1)
-            .useForInvite(host.address, user2.address, ethers.parseEther("10"))
-        )
-          .to.emit(hostDeposit, "UsedForInvite")
-          .withArgs(host.address, user2.address, ethers.parseEther("10"));
-
-        await expect(
-          hostDeposit
-            .connect(user1)
-            .releaseFromInvite(host.address, user2.address)
-        )
-          .to.emit(hostDeposit, "ReleasedFromInvite")
-          .withArgs(host.address, user2.address, ethers.parseEther("10"));
       });
     });
 

@@ -1,6 +1,7 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
+
 import {
   HostRegistry,
   HostRegistry__factory,
@@ -9,6 +10,7 @@ import {
   AccessManager,
   AccessManager__factory,
 } from "../typechain-types";
+import { ROLES } from "./helpers/constants";
 
 describe("HostRegistry", () => {
   let hostRegistry: HostRegistry;
@@ -20,9 +22,8 @@ describe("HostRegistry", () => {
   let otherUser: SignerWithAddress;
   let deployer: SignerWithAddress;
 
-  const HOST_ROLE = ethers.keccak256(ethers.toUtf8Bytes("HOST_ROLE"));
-  const INVITE_ROLE = ethers.keccak256(ethers.toUtf8Bytes("INVITE_ROLE"));
-  const ADMIN_ROLE = ethers.ZeroHash;
+  const initialMinToDeposit = ethers.parseEther("100");
+  const initialDeposited = ethers.parseEther("1000");
 
   beforeEach(async () => {
     [deployer, admin, host, invitee, otherUser] = await ethers.getSigners();
@@ -55,16 +56,14 @@ describe("HostRegistry", () => {
     // Настраиваем роли
     await accessManager
       .connect(admin)
-      .grantRole(HOST_ROLE, await hostDeposit.getAddress());
+      .grantRole(ROLES.HOST_CONTRACT, await hostDeposit.getAddress());
     await accessManager
       .connect(admin)
-      .grantRole(INVITE_ROLE, await hostRegistry.getAddress());
-    await accessManager.connect(admin).grantRole(ADMIN_ROLE, admin.address);
+      .grantRole(ROLES.REGISTRY_CONTRACT, await hostRegistry.getAddress());
+    await accessManager.connect(admin).grantRole(ROLES.ADMIN, admin.address);
 
     // Устанавливаем минимальный депозит
-    await hostRegistry
-      .connect(admin)
-      .updateMinToDeposit(ethers.parseEther("100"));
+    await hostRegistry.connect(admin).updateMinToDeposit(initialMinToDeposit);
 
     // Даем хосту разрешение приглашать
     await hostRegistry
@@ -74,7 +73,7 @@ describe("HostRegistry", () => {
     // Увеличиваем депозит хосту
     await hostDeposit
       .connect(admin)
-      .increaseDeposit(host.address, ethers.parseEther("1000"));
+      .increaseDeposit(host.address, initialDeposited);
   });
 
   describe("Deployment", () => {

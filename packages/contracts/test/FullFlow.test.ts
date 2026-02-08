@@ -1,8 +1,8 @@
 import { expect } from "chai";
-
-import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers";
-import { HostDeposit, HostRegistry } from "../typechain-types";
+import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { ethers } from "hardhat";
+
+import { HostDeposit, HostRegistry } from "../typechain-types";
 
 describe("Full Flow", () => {
   let hostRegistry: HostRegistry;
@@ -13,6 +13,9 @@ describe("Full Flow", () => {
   let host: SignerWithAddress;
   let invitee1: SignerWithAddress;
   let invitee2: SignerWithAddress;
+
+  const minToDeposit = ethers.parseEther("100");
+  const initialDeposited = ethers.parseEther("1000");
 
   beforeEach(async () => {
     [admin, host, invitee1, invitee2] = await ethers.getSigners();
@@ -47,81 +50,93 @@ describe("Full Flow", () => {
       .grantRole(REGISTRY_CONTRACT, await hostRegistry.getAddress());
 
     // Настройка системы
-    await hostRegistry
-      .connect(admin)
-      .updateMinToDeposit(ethers.parseEther("100"));
+    await hostRegistry.connect(admin).updateMinToDeposit(minToDeposit);
     await hostRegistry
       .connect(admin)
       .updateAllowanceToInvite(host.address, true);
     await hostDeposit
       .connect(admin)
-      .increaseDeposit(host.address, ethers.parseEther("1000"));
+      .increaseDeposit(host.address, initialDeposited);
   });
 
-  it("Should complete full user journey", async () => {
-    // 1. Хост приглашает пользователя
-    await hostRegistry
-      .connect(admin)
-      .updateAllowanceToInvite(host.address, true);
-
+  it("Should complete full users journey (accepted and declined invites)", async () => {
+    // Хост приглашает пользователя
     await hostRegistry.connect(host).invite(invitee1.address);
-
     expect(await hostRegistry.invites(invitee1.address)).to.equal(host.address);
+    let [total, locked, usedForInvites] = await hostDeposit.deposits(
+      host.address
+    );
+    expect(total).to.equal(initialDeposited);
+    expect(locked).to.equal(0);
+    expect(usedForInvites).to.equal(minToDeposit);
+    expect(await hostDeposit.inviteDeposits(invitee1.address)).to.equal(
+      minToDeposit
+    );
 
-    // 2. Хост приглашает второго пользователя
-    await hostRegistry.connect(host).invite(invitee2.address);
-
-    // 3. Первый пользователь принимает инвайт
+    // Первый пользователь принимает инвайт
     await hostRegistry.connect(invitee1).acceptInvite();
     expect(await hostRegistry.hosts(invitee1.address)).to.equal(host.address);
 
-    // 4. Второй пользователь отклоняет инвайт
+    // Попытка удалить первого пользователя не хостом
+    await expect(
+      hostRegistry.connect(invitee2).removeUser(invitee1)
+    ).to.be.revertedWith("You are not a host");
+
+    // Хост удаляет первого пользователя
+    await hostRegistry.connect(host).removeUser(invitee1.address);
+    expect(await hostRegistry.hosts(invitee1.address)).to.equal(
+      ethers.ZeroAddress
+    );
+    [total, locked, usedForInvites] = await hostDeposit.deposits(host.address);
+    expect(total).to.equal(initialDeposited);
+    expect(locked).to.equal(0);
+    expect(usedForInvites).to.equal(0);
+    expect(await hostDeposit.inviteDeposits(invitee1.address)).to.equal(0);
+
+    // 4. Хост приглашает второго пользователя и он отклоняет инвайт
+    await hostRegistry.connect(host).invite(invitee2.address);
     await hostRegistry.connect(invitee2).declineInvite();
+    [total, locked, usedForInvites] = await hostDeposit.deposits(host.address);
+    expect(total).to.equal(initialDeposited);
+    expect(locked).to.equal(0);
+    expect(usedForInvites).to.equal(0);
+    expect(await hostDeposit.inviteDeposits(invitee1.address)).to.equal(0);
     expect(await hostRegistry.invites(invitee2.address)).to.equal(
       ethers.ZeroAddress
     );
     expect(await hostRegistry.hosts(invitee2.address)).to.equal(
       ethers.ZeroAddress
     );
-
-    // 5. Хост удаляет первого пользователя
-    await hostRegistry.connect(host).removeUser(invitee1.address);
-    expect(await hostRegistry.hosts(invitee1.address)).to.equal(
-      ethers.ZeroAddress
-    );
-
-    // 6. Проверяем состояние депозита
-    const deposit = await hostDeposit.deposits(host.address);
-
-    expect(deposit[0]).to.equal(ethers.parseEther("1000"));
-    // usedForInvites должен быть 0 после declineInvite
-    expect(deposit[2]).to.equal(0);
   });
 
   it("Should handle deposit operations", async () => {
-    // 1. Увеличиваем депозит
-    await hostDeposit
-      .connect(admin)
-      .increaseDeposit(host.address, ethers.parseEther("500"));
-
-    // 2. Блокируем часть депозита
-    await hostDeposit.lockDeposit(host.address, ethers.parseEther("200"));
+    // Блокируем часть депозита
+    await expect(
+      hostDeposit.lockDeposit(host.address, ethers.parseEther("200"))
+    )
+      .to.emit(hostDeposit, "DepositLocked")
+      .withArgs(host.address, ethers.parseEther("200"));
 
     let deposit = await hostDeposit.deposits(host.address);
     expect(deposit.locked).to.equal(ethers.parseEther("200"));
+    expect(deposit.total).to.equal(initialDeposited);
+    expect(deposit.usedForInvites).to.equal(0);
 
-    // 3. Разблокируем
+    // Разблокируем
     await hostDeposit.unlockDeposit(host.address, ethers.parseEther("100"));
 
     deposit = await hostDeposit.deposits(host.address);
     expect(deposit.locked).to.equal(ethers.parseEther("100"));
 
-    // 4. Слэшим депозит
+    // Слэшим депозит -50 + Увеличиваем на 100 => +50
     await hostDeposit
       .connect(admin)
       .slashDeposit(host.address, ethers.parseEther("50"));
+    await hostDeposit
+      .connect(admin)
+      .increaseDeposit(host.address, ethers.parseEther("100"));
 
     deposit = await hostDeposit.deposits(host.address);
-    expect(deposit.total).to.equal(ethers.parseEther("1450")); // 1000 + 500 - 50
+    expect(deposit.total).to.equal(ethers.parseEther("1050")); // 1000 - 50 + 100 => 1050
   });
 });

@@ -1,7 +1,7 @@
 import { expect } from "chai";
-import { ethers } from "hardhat";
-import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { AccessManager, AccessManager__factory } from "../typechain-types";
+import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
+import { ethers } from "hardhat";
 
 describe("AccessManager", () => {
   let accessManager: AccessManager;

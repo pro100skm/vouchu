@@ -1,5 +1,7 @@
 import { HardhatUserConfig } from "hardhat/config";
+import "@nomicfoundation/hardhat-ethers";
 import "@nomicfoundation/hardhat-toolbox";
+import "@nomicfoundation/hardhat-chai-matchers";
 import "@typechain/hardhat";
 import "solidity-coverage";
 
@@ -26,7 +28,7 @@ const config: HardhatUserConfig = {
   },
   typechain: {
     outDir: "typechain-types",
-    target: "ethers-v5",
+    target: "ethers-v6",
   },
 };
 
